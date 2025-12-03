@@ -39,8 +39,7 @@
         m.hours,                                 \
         m.id,                                    \
         m.op,                                    \
-        m.arg,                                   \
-        m.arg_len);
+        m.arg)
 
 #define DEBUGARGS()                                                                                                                                           \
     printf("daemon = %d; list = %d\n", arg_daemon, arg_list);                                                                                                 \
@@ -91,13 +90,6 @@ void help()
     printf("  -b <num>\tbacklog of socket connections\n");
 }
 
-/* typedef enum
-{
-    STOPPED = -1,
-    RUNNING = 0,
-    PAUSED,
-} tmg_timer_status_t; */
-
 typedef struct
 {
     // Unique ID of a timer.
@@ -122,10 +114,11 @@ typedef struct
     char *sock_path;
     // Program to be run after the timer finishes
     char *program;
-    // priority queue of timers
+    // timer thread id
     pthread_t timer_thread;
     // manager mutex
     pthread_mutex_t mutex;
+    // priority queue of timers
     struct q
     {
         tmg_timer_t *timers;
@@ -136,9 +129,11 @@ typedef struct
 
 typedef struct
 {
+    // timer id (where sensible), operation
     int id, op;
+    // changed/created times
     int secs, minutes, hours;
-    int arg_len;
+    // changed/created argument
     char arg[MAXSIZE];
 } tmg_client_message_t;
 
@@ -250,9 +245,9 @@ void *run_timer_thread(void *args)
     }
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
-    // do the cleanup
-    pthread_cleanup_pop(1);
-    pthread_cleanup_pop(1);
+    // Cleanup
+    pthread_cleanup_pop(true);
+    pthread_cleanup_pop(true);
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     res = pthread_mutex_trylock(&mgr->mutex);
@@ -363,13 +358,66 @@ int create_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 
 int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
-    printf("TODO: delete_timer\n");
+    tmg_timer_t *timer;
+    bool restart_thread;
+    int res, last_id;
+
+    pthread_mutex_lock(&mgr->mutex);
+    if (mgr->q.len <= 0) {
+        dprintf(conn, "no timers found.\n");
+        return 0;
+    }
+    last_id = mgr->q.timers[mgr->q.len - 1].id;
+    for (int i = 0; i < mgr->q.len; i++) {
+        if (mgr->q.timers[i].id != msg->id) {
+            continue;
+        }
+
+        pthread_cancel(mgr->timer_thread);
+        timer = &mgr->q.timers[i];
+        timer->end = timer->begin + msg->secs + msg->minutes * 60 + msg->hours * 60 * 60;
+        strncpy(timer->arg, msg->arg, MAXSIZE - 1);
+        qsort(mgr->q.timers, mgr->q.len, sizeof(tmg_timer_t), timer_cmp);
+        if ((restart_thread = last_id != mgr->q.timers[mgr->q.len - 1].id || last_id == msg->id)) {
+            pthread_cancel(mgr->timer_thread);
+        }
+        break;
+    }
+    pthread_mutex_unlock(&mgr->mutex);
+    if (restart_thread)
+        make_timer_thread(mgr);
+
     return 0;
 }
 
 int delete_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
-    printf("TODO: delete_timer\n");
+    tmg_timer_t a, tmp = { 0 };
+    bool restart_thread = false;
+
+    pthread_mutex_lock(&mgr->mutex);
+    if (mgr->q.len <= 0) {
+        return 0;
+    }
+    if ((restart_thread = msg->id == mgr->q.timers[mgr->q.len - 1].id)) {
+        deq(mgr);
+        pthread_cancel(mgr->timer_thread);
+    }
+    for (int i = 0; i < mgr->q.len; i++) {
+        if (mgr->q.timers[i].id == msg->id) {
+            memcpy(&a, &mgr->q.timers[i], sizeof(tmg_timer_t));
+            memcpy(&tmp, &mgr->q.timers[mgr->q.len - 1], sizeof(tmg_timer_t));
+            memcpy(&mgr->q.timers[mgr->q.len - 1], &a, sizeof(tmg_timer_t));
+            deq(mgr);
+            break;
+        }
+    }
+    qsort(mgr->q.timers, mgr->q.len, sizeof(tmg_timer_t), timer_cmp);
+    pthread_mutex_unlock(&mgr->mutex);
+
+    if (restart_thread)
+        make_timer_thread(mgr);
+
     return 0;
 }
 int list_timers(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
@@ -382,7 +430,7 @@ int list_timers(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 
     pthread_mutex_lock(&mgr->mutex);
     for (int i = 0; i < mgr->q.len; i++) {
-        timer = mgr->q.timers[i];
+        timer = mgr->q.timers[(mgr->q.len - 1) - i];
         lt = localtime(&timer.begin);
         strftime(begin_buf, sizeof(begin_buf), "%a %b %e %H:%M:%S %Y", lt);
         lt = localtime(&timer.end);
@@ -446,7 +494,6 @@ int client_main()
     msg.hours = arg_hours;
     msg.minutes = arg_mins;
     msg.secs = arg_secs;
-    msg.arg_len = arg_msg != NULL ? strlen(arg_msg) : 0;
     // So that we do not overflow the buffer
     strncpy(msg.arg, arg_msg != NULL ? arg_msg : "", MAXSIZE - 1);
 
