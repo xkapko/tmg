@@ -399,7 +399,7 @@ int create_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
         REPLY(conn, "%s timer creation failed\n", NOK);
         return -1;
     }
-    REPLY(conn, "%s timer created successfully\n", OK);
+    REPLY(conn, "%s timer created successfully with id '%d'\n", OK, mgr->current);
     return 0;
 }
 

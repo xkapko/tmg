@@ -4,7 +4,7 @@ OUT = tmg
 
 prefix ?= ~/.local
 
-SOURCE = tmg.c color.h
+SOURCE = tmg.c
 
 ifdef DEBUG
 	CFLAGS += -g -DDEBUG
