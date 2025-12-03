@@ -349,6 +349,7 @@ init_manager_err:
 void free_manager(tmg_manager_t *mgr)
 {
     close(mgr->sockfd);
+    (void) unlink(mgr->sock_path);
     free(mgr->sock_path);
     free(mgr->program);
     free(mgr->q.timers);
@@ -368,10 +369,10 @@ int create_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 
     res = enq(mgr, &timer);
     if (res) {
-        REPLY(conn, "%s timer creation failed.\n", NOK);
+        REPLY(conn, "%s timer creation failed\n", NOK);
         return -1;
     }
-    REPLY(conn, "%s timer created successfully.\n", OK);
+    REPLY(conn, "%s timer created successfully\n", OK);
     return 0;
 }
 
@@ -385,7 +386,7 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 
     UNRECOVERABLE(res, "unrecoverable: could not acquire mutex", pthread_mutex_lock(&mgr->mutex));
     if (mgr->q.len <= 0) {
-        REPLY(conn, "%s no timers found.\n", OK);
+        REPLY(conn, "%s no timers found\n", OK);
         UNRECOVERABLE(res, "unrecoverable: someome stole my mutex!", pthread_mutex_unlock(&mgr->mutex));
         return 0;
     }
@@ -407,7 +408,7 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
         break;
     }
     if (!found) {
-        REPLY(conn, "%s no timers matching id '%d' found.\n", OK, msg->id);
+        REPLY(conn, "%s no timers matching id '%d' found\n", OK, msg->id);
         UNRECOVERABLE(res, "unrecoverable: someome stole my mutex!", pthread_mutex_unlock(&mgr->mutex));
         return 0;
     }
@@ -415,7 +416,7 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
         create_thread(mgr); // SAFETY: this fails, process exits.
     UNRECOVERABLE(res, "unrecoverable: someome stole my mutex!", pthread_mutex_unlock(&mgr->mutex));
 
-    REPLY(conn, "%s timer with id '%d' changed successfully.\n", OK, msg->id);
+    REPLY(conn, "%s timer with id '%d' changed successfully\n", OK, msg->id);
     return 0;
 }
 
@@ -428,14 +429,16 @@ int delete_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 
     UNRECOVERABLE(res, "unrecoverable: could not acquire mutex", pthread_mutex_lock(&mgr->mutex));
     if (mgr->q.len <= 0) {
-        REPLY(conn, "%s no timers found.\n", NOK);
+        REPLY(conn, "%s no timers found\n", NOK);
         return 0;
     }
     if ((restart_thread = msg->id == mgr->q.timers[mgr->q.len - 1].id)) {
         deq(mgr);
         pthread_cancel(mgr->timer_thread);
-        REPLY(conn, "%s deleted timer with id '%d'\n", OK, msg->id);
+        if (restart_thread && mgr->q.len > 0)
+            create_thread(mgr); // SAFETY: this fails, process exits.
         UNRECOVERABLE(res, "unrecoverable: someome stole my mutex!", pthread_mutex_unlock(&mgr->mutex));
+        REPLY(conn, "%s deleted timer with id '%d'\n", OK, msg->id);
         return 0;
     }
     for (size_t i = 0; i < mgr->q.len; i++) {
@@ -450,7 +453,7 @@ int delete_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
     }
     if (!found) {
         UNRECOVERABLE(res, "unrecoverable: someome stole my mutex!", pthread_mutex_unlock(&mgr->mutex));
-        REPLY(conn, "%s no timers matching id '%d' found.\n", OK, msg->id);
+        REPLY(conn, "%s no timers matching id '%d' found\n", OK, msg->id);
         return 0;
     }
     qsort(mgr->q.timers, mgr->q.len, sizeof(tmg_timer_t), timer_cmp);
@@ -493,6 +496,7 @@ int quit_daemon(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
     (void) msg;
     int res;
+    LOG("%s: quit daemon request\n", INFO);
     UNRECOVERABLE(res, "unrecoverable: could not acquire mutex", pthread_mutex_lock(&mgr->mutex));
     pthread_cancel(mgr->timer_thread);
 
@@ -612,6 +616,8 @@ int daemon_main()
         if (msg.op < N_OPS && msg.op >= 0) {
             handlers[msg.op](&mgr, &msg, conn);
             if (msg.op == OP_QUIT) {
+                close(conn);
+                LOG("%s: client disconnected\n", INFO);
                 break;
             }
         }
@@ -622,6 +628,7 @@ int daemon_main()
     }
 
     free_manager(&mgr);
+    LOG("%s: daemon exitting\n", TRACE);
 
     return 0;
 }
