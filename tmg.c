@@ -33,7 +33,7 @@
 #define LOG(...) dprintf(2, __VA_ARGS__);
 /// Send a reply to a client on connection `conn`.
 #define REPLY(conn, ...) dprintf(conn, __VA_ARGS__);
-/// Macro for logging and error and exiting the process.
+/// Macro for logging exiting when encountering an unrecoverable error.
 #define UNRECOVERABLE(res, msg, action) \
     res = action;                       \
     if (res) {                          \
@@ -85,6 +85,7 @@ char *arg_msg = NULL;
 char *arg_prog = NULL;
 char *arg_sock_path = NULL;
 
+/// Print help message to standard output.
 void help()
 {
     printf("usage: tmg [-D] [-H HOURS] [-m MINUTES] [-s SECONDS] [-M message] [-S SOCKET_PATH] [-p PROGRAM]\n");
@@ -104,6 +105,7 @@ void help()
     printf("  -b <num>\tbacklog of socket connections\n");
 }
 
+/// A single timer.
 typedef struct
 {
     // Unique ID of a timer.
@@ -118,6 +120,7 @@ typedef struct
     // tmg_timer_status_t status;
 } tmg_timer_t;
 
+/// Timer manager.
 typedef struct
 {
     // current id
@@ -141,6 +144,7 @@ typedef struct
     } q;
 } tmg_manager_t;
 
+/// Messages sent from the client.
 typedef struct
 {
     // timer id (where sensible), operation
@@ -151,6 +155,7 @@ typedef struct
     char arg[MAXSIZE];
 } tmg_client_message_t;
 
+/// Buffer for replies received from the daemon.
 typedef struct
 {
     char body[MAXSIZE * 2];
@@ -158,6 +163,7 @@ typedef struct
 
 int create_thread(tmg_manager_t *mgr);
 
+/// Timer comparison function.
 int timer_cmp(const void *a, const void *b)
 {
     tmg_timer_t *ta = (tmg_timer_t *) a;
@@ -166,6 +172,11 @@ int timer_cmp(const void *a, const void *b)
     return -(ta->end - tb->end);
 }
 
+/// Enqueue a timer onto the priority queue.
+///
+/// After adding the timer to the queue, the queue is sorted in a descending order,
+/// so that the last timer in the list is the timer which ends the soonest. A thread is
+/// spawned for the timer.
 int enq(tmg_manager_t *mgr, tmg_timer_t *timer)
 {
     int last_id, new_last_id;
@@ -200,6 +211,9 @@ int enq(tmg_manager_t *mgr, tmg_timer_t *timer)
     return 0;
 }
 
+/// Remove the last timer from the queue.
+///
+/// This function is not responsible for closing/restarting the timer thread.
 int deq(tmg_manager_t *mgr)
 {
     int res;
@@ -216,6 +230,8 @@ int deq(tmg_manager_t *mgr)
 }
 
 /// This function runs in the timer thread.
+///
+/// After the timer ends, this function is responsible for scheduling the next timer thread.
 void *thread_routine(void *args)
 {
     tmg_manager_t *mgr = (tmg_manager_t *) args;
@@ -287,6 +303,7 @@ void *thread_routine(void *args)
     pthread_exit(NULL);
 }
 
+/// Function responsible for creating the detached timer thread.
 int create_thread(tmg_manager_t *mgr)
 {
     pthread_t thread;
@@ -301,6 +318,7 @@ int create_thread(tmg_manager_t *mgr)
     return 0;
 }
 
+/// Initialize the timer manager.
 int init_manager(tmg_manager_t *mgr)
 {
     int res;
@@ -346,6 +364,7 @@ init_manager_err:
     return -1;
 }
 
+/// Free the timer manager.
 void free_manager(tmg_manager_t *mgr)
 {
     close(mgr->sockfd);
@@ -356,6 +375,7 @@ void free_manager(tmg_manager_t *mgr)
     pthread_mutex_destroy(&mgr->mutex);
 }
 
+/// Daemon's handler for creating a new timer.
 int create_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
     tmg_timer_t timer = { 0 };
@@ -376,6 +396,7 @@ int create_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
     return 0;
 }
 
+/// Daemon's handler for changing timer operation.
 int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
     tmg_timer_t *timer;
@@ -399,7 +420,9 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
         // SAFETY: no real errors are returned on thread cancellation.
         pthread_cancel(mgr->timer_thread);
         timer = &mgr->q.timers[i];
-        timer->end = timer->begin + msg->secs + msg->minutes * 60 + msg->hours * 60 * 60;
+        // SEMANTICS: changing a timer modifies its end time, by add (subtracting in the case of negative values)
+        // the time values to the end time of the timer.
+        timer->end = timer->end + msg->secs + msg->minutes * 60 + msg->hours * 60 * 60;
         strncpy(timer->arg, msg->arg, MAXSIZE);
         qsort(mgr->q.timers, mgr->q.len, sizeof(tmg_timer_t), timer_cmp);
         if ((restart_thread = last_id != mgr->q.timers[mgr->q.len - 1].id || last_id == msg->id)) {
@@ -420,6 +443,7 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
     return 0;
 }
 
+/// Daemon's handler for delete timer operation.
 int delete_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
     tmg_timer_t a, tmp = { 0 };
@@ -464,6 +488,8 @@ int delete_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 
     return 0;
 }
+
+/// Daemon's handler for list timer operation.
 int list_timers(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
     (void) msg;
@@ -492,6 +518,7 @@ int list_timers(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
     return 0;
 }
 
+/// Daemon's handler for quit operation.
 int quit_daemon(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
     (void) msg;
@@ -505,6 +532,7 @@ int quit_daemon(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
     return 0;
 }
 
+/// Map from operations to handlers.
 static int (*handlers[N_OPS])(tmg_manager_t *, const tmg_client_message_t *, int) = {
     create_timer,
     change_timer,
@@ -513,6 +541,7 @@ static int (*handlers[N_OPS])(tmg_manager_t *, const tmg_client_message_t *, int
     quit_daemon,
 };
 
+/// Main function of the client.
 int client_main()
 {
     int res, sock;
@@ -577,6 +606,7 @@ int client_main()
     return 0;
 }
 
+/// Main function of the daemon.
 int daemon_main()
 {
     int res;
