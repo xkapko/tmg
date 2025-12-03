@@ -1,3 +1,4 @@
+#include <errno.h>
 #define _POSIX_C_SOURCE 200809L
 
 #include "color.h"
@@ -215,7 +216,7 @@ int enq(tmg_manager_t *mgr, tmg_timer_t *timer)
         new = realloc(mgr->q.timers, sizeof(tmg_timer_t) * mgr->q.cap * 2);
         if (new == NULL) {
             pthread_mutex_unlock(&mgr->mutex);
-            perror("realloc");
+            perror("enqueue realloc");
             return -1;
         }
         mgr->q.timers = new;
@@ -291,7 +292,7 @@ void *thread_routine(void *args)
 
     res = system(timer.arg);
     if (res != 0) {
-        perror("tmg");
+        LOG("%s could not run command '%s': %s", ERR, timer.arg, strerror(errno));
     }
 
     pthread_cleanup_pop(true);
@@ -358,7 +359,7 @@ int init_manager(tmg_manager_t *mgr)
     (void) unlink(mgr->sock_path);
     res = bind(mgr->sockfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un));
     if (res == -1) {
-        perror("tgm");
+        perror("bind()");
         goto init_manager_err;
     }
 
@@ -429,7 +430,7 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
         timer = &mgr->q.timers[i];
         // SEMANTICS: changing a timer modifies its end time, by add (subtracting in the case of negative values)
         // the time values to the end time of the timer.
-        timer->end = timer->end + msg->secs + msg->minutes * 60 + msg->hours * 60 * 60;
+        timer->end = time(NULL) + msg->secs + msg->minutes * 60 + msg->hours * 60 * 60;
         if (strlen(msg->arg) > 0) {
             strncpy(timer->arg, msg->arg, MAXSIZE);
         }
@@ -562,13 +563,13 @@ int client_main()
 
     sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock == -1) {
-        perror("tgm");
+        perror("socket()");
         return -1;
     }
 
     sock_path = socket_path();
     if (sock_path == NULL) {
-        perror("socket path");
+        perror("sock_path");
         return -1;
     }
 
@@ -578,7 +579,7 @@ int client_main()
 
     res = connect(sock, (struct sockaddr *) &addr, arg_backlog ? arg_backlog : DEFAULT_SOCKET_BACKLOG);
     if (res == -1) {
-        perror("tmg");
+        LOG("%s could not connect to socket '%s', is the daemon running?\n", ERR, sock_path);
         free(sock_path);
         return -1;
     }
@@ -603,7 +604,7 @@ int client_main()
 
     wb = write(sock, &msg, sizeof(tmg_client_message_t));
     if (wb == -1) {
-        perror("tmg");
+        perror("write(message)");
         free(sock_path);
         close(sock);
         return -1;
@@ -638,7 +639,7 @@ int daemon_main()
     backlog = (arg_backlog > 0) ? arg_backlog : DEFAULT_SOCKET_BACKLOG;
     res = listen(mgr.sockfd, backlog);
     if (res == -1) {
-        perror("tgm");
+        perror("listen()");
         free_manager(&mgr);
         return -1;
     }
