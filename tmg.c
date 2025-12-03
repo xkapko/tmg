@@ -24,21 +24,23 @@
 #define OP_LIST 3
 #define OP_QUIT 4
 
+#define MAX(a, b) (a >= b ? a : b)
+#define MIN(a, b) (a <= b ? a : b)
+
 #define N_OPS 5
 
 #ifdef DEBUG
-#define DEBUGMSG(m) printf("{\n\tsecs: %d\n"     \
-                           "\tmins: %d\n"        \
-                           "\thours: %d\n"       \
-                           "\tid: %d\n"          \
-                           "\top: %d\n"          \
-                           "\tmsg: %s\n"         \
-                           "\tmsg_len: %d\n}\n", \
-        m.secs,                                  \
-        m.minutes,                               \
-        m.hours,                                 \
-        m.id,                                    \
-        m.op,                                    \
+#define DEBUGMSG(m) printf("{\n\tsecs: %d\n" \
+                           "\tmins: %d\n"    \
+                           "\thours: %d\n"   \
+                           "\tid: %d\n"      \
+                           "\top: %d\n"      \
+                           "\tmsg: %s\n}\n", \
+        m.secs,                              \
+        m.minutes,                           \
+        m.hours,                             \
+        m.id,                                \
+        m.op,                                \
         m.arg)
 
 #define DEBUGARGS()                                                                                                                                           \
@@ -56,12 +58,12 @@
         t.end,                                \
         t.arg);
 
-#define DEBUGPRINT(args...) dprintf(2, args);
+#define DEBUGPRINT(...) dprintf(2, __VA_ARGS__);
 #else
 #define DEBUGMSG(m) (void) 0;
 #define DEBUGARGS() (void) 0;
 #define DEBUGTIMER(t) (void) 0;
-#define DEBUGPRINT(args...) (void) 0;
+#define DEBUGPRINT(...) (void) 0;
 #endif
 
 // command line options
@@ -309,7 +311,7 @@ int init_manager(tmg_manager_t *mgr)
     memset(&addr, 0, sizeof(struct sockaddr_un));
     addr.sun_family = AF_UNIX;
     len = strlen(mgr->sock_path);
-    strncpy(addr.sun_path, mgr->sock_path, len);
+    strncpy(addr.sun_path, mgr->sock_path, MIN(len, sizeof(addr.sun_path) - 1));
 
     (void) unlink(mgr->sock_path);
     res = bind(mgr->sockfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un));
@@ -359,8 +361,8 @@ int create_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
 {
     tmg_timer_t *timer;
-    bool restart_thread;
-    int res, last_id;
+    bool restart_thread = false;
+    int last_id;
 
     pthread_mutex_lock(&mgr->mutex);
     if (mgr->q.len <= 0) {
@@ -376,7 +378,7 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
         pthread_cancel(mgr->timer_thread);
         timer = &mgr->q.timers[i];
         timer->end = timer->begin + msg->secs + msg->minutes * 60 + msg->hours * 60 * 60;
-        strncpy(timer->arg, msg->arg, MAXSIZE - 1);
+        strncpy(timer->arg, msg->arg, MAXSIZE);
         qsort(mgr->q.timers, mgr->q.len, sizeof(tmg_timer_t), timer_cmp);
         if ((restart_thread = last_id != mgr->q.timers[mgr->q.len - 1].id || last_id == msg->id)) {
             pthread_cancel(mgr->timer_thread);
@@ -465,7 +467,6 @@ static int (*handlers[N_OPS])(tmg_manager_t *, const tmg_client_message_t *, int
 int client_main()
 {
     int res, sock;
-    size_t len;
     ssize_t wb, rb;
     tmg_client_message_t msg = { 0 };
     tmg_reply_t reply = { 0 };
@@ -481,8 +482,7 @@ int client_main()
     sock_path = arg_sock_path != NULL ? strdup(arg_sock_path) : strdup(DEFAULT_SOCKET_PATH);
     memset(&addr, 0, sizeof(struct sockaddr_un));
     addr.sun_family = AF_UNIX;
-    len = strlen(sock_path);
-    strncpy(addr.sun_path, sock_path, len);
+    strncpy(addr.sun_path, sock_path, sizeof(addr.sun_path) - 1);
 
     res = connect(sock, (struct sockaddr *) &addr, arg_backlog ? arg_backlog : DEFAULT_SOCKET_BACKLOG);
     if (res == -1) {

@@ -1,8 +1,8 @@
-CC ?= gcc
-CFLAGS ?=-Wall -pedantic -lpthread
-OUT ?= tmg
+CC = gcc
+CFLAGS = -Wall -pedantic -lpthread
+OUT = tmg
 
-SOURCE ?= tmg.c
+SOURCE = tmg.c
 
 ifdef DEBUG
 	CFLAGS += -g -DDEBUG
