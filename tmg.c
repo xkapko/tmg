@@ -430,7 +430,9 @@ int change_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
         // SEMANTICS: changing a timer modifies its end time, by add (subtracting in the case of negative values)
         // the time values to the end time of the timer.
         timer->end = timer->end + msg->secs + msg->minutes * 60 + msg->hours * 60 * 60;
-        strncpy(timer->arg, msg->arg, MAXSIZE);
+        if (strlen(msg->arg) > 0) {
+            strncpy(timer->arg, msg->arg, MAXSIZE);
+        }
         qsort(mgr->q.timers, mgr->q.len, sizeof(tmg_timer_t), timer_cmp);
         if ((restart_thread = last_id != mgr->q.timers[mgr->q.len - 1].id || last_id == msg->id)) {
             pthread_cancel(mgr->timer_thread);
