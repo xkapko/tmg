@@ -15,6 +15,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#define TMG_MAJOR 1
+#define TMG_MINOR 0
+#define TMG_PATCH 0
+
 #define DEFAULT_SOCKET_PATH "tmg.socket"
 #define DEFAULT_SOCKET_BACKLOG 32
 #define DEFAULT_PROGRAM "notify-send"
@@ -89,20 +93,27 @@ char *arg_sock_path = NULL;
 /// Print help message to standard output.
 void help()
 {
-    printf("usage: tmg [-D] [-H HOURS] [-m MINUTES] [-s SECONDS] [-R COMMAND]\n");
-    printf("           [-l] [-d ID] [-c ID] [-b BACKLOG] [-S SOCKET_PATH]\n\n");
-    printf("timer manager: create & manage timed commands\n\n");
-    printf("options:\n");
-    printf("  -h\t\tdisplay this help message\n");
-    printf("  -l\t\tlist active timers\n");
-    printf("  -H <num>\tset number of hours when creating/changing a timer\n");
-    printf("  -m <num>\tset number of minutes when creating/changing a timer\n");
-    printf("  -s <num>\tset number of seconds when creating/changing a timer\n");
-    printf("  -R <str>\tcommand to run once timer finishes (<shell> -c <cmd>)\n");
-    printf("  -S <str>\tpath to daemon socket\n");
-    printf("  -d <num>\tdelete timer by id\n");
-    printf("  -c <num>\tchange timer by id\n");
-    printf("  -b <num>\tbacklog of socket connections\n");
+    dprintf(2, "usage: tmg [-D] [-H HOURS] [-m MINUTES] [-s SECONDS] [-R COMMAND]\n");
+    dprintf(2, "           [-l] [-d ID] [-c ID] [-b BACKLOG] [-S SOCKET_PATH]\n");
+    dprintf(2, "           [-h] [-v]\n\n");
+    dprintf(2, "timer manager: create & manage timed commands\n\n");
+    dprintf(2, "options:\n");
+    dprintf(2, "  -h\t\tdisplay this help message\n");
+    dprintf(2, "  -v\t\tprint the version information\n");
+    dprintf(2, "  -l\t\tlist active timers\n");
+    dprintf(2, "  -H <num>\tset number of hours when creating/changing a timer\n");
+    dprintf(2, "  -m <num>\tset number of minutes when creating/changing a timer\n");
+    dprintf(2, "  -s <num>\tset number of seconds when creating/changing a timer\n");
+    dprintf(2, "  -R <str>\tcommand to run once timer finishes (<shell> -c <cmd>)\n");
+    dprintf(2, "  -S <str>\tpath to daemon socket\n");
+    dprintf(2, "  -d <num>\tdelete timer by id\n");
+    dprintf(2, "  -c <num>\tchange timer by id\n");
+    dprintf(2, "  -b <num>\tbacklog of socket connections\n");
+}
+
+void version()
+{
+    printf("tmg %d.%d.%d\n", TMG_MAJOR, TMG_MINOR, TMG_PATCH);
 }
 
 /// A single timer.
@@ -682,7 +693,7 @@ int main(int argc, char *argv[])
 {
     int o, res;
 
-    while ((o = getopt(argc, argv, "hDm:R:s:H:S:ld:c:b:q")) != -1) {
+    while ((o = getopt(argc, argv, "hvDm:R:s:H:S:ld:c:b:q")) != -1) {
         switch (o) {
         case 'D':
             arg_daemon = true;
@@ -717,6 +728,10 @@ int main(int argc, char *argv[])
         case 'q':
             arg_quit = true;
             break;
+        case 'v':
+            version();
+            res = 0;
+            goto cleanup;
         default:
             help();
             res = 1;

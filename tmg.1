@@ -5,6 +5,10 @@ tmg \- create and manage timers which execute commands upon finishing
 .SH Synopsis
 
 .SY tmg
+[-hv]
+.YS
+
+.SY tmg
 [-D]
 [-b BACKLOG]
 [-S SOCKET_PATH]
@@ -74,6 +78,14 @@ List the currently running timers.
 .SS Deleting timers.
 \fB\-d\fR \fI\,ID\/\fR
 Delete the timer with the given \fBID\fR.
+
+.SS Help & Version
+.TP
+\fB\-h\fR
+Display a help message to \fIstandard error\fR and exit with return code 1.
+.TP
+\fB\-v\fR
+Display version information to standard output and return with return code 0.
 
 .SH Examples
 First, the user needs to start the daemon. The user can also specify custom values for socket path and connection backlog:
