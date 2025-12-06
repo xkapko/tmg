@@ -14,6 +14,10 @@ else
 	CFLAGS += -O2
 endif
 
+ifdef RELEASE
+	CFLAGS += -static
+endif
+
 all: $(OUT)
 
 $(OUT): $(SOURCE)
