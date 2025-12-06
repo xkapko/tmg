@@ -1,0 +1,148 @@
+.TH "tmg" 1 "December 2025" "tmg 1.0"
+.SH Name
+tmg \- create and manage timers which execute commands upon finishing
+
+.SH Synopsis
+
+.SY tmg
+[-D]
+[-b BACKLOG]
+[-S SOCKET_PATH]
+.YS
+
+.SY tmg
+[-H HOURS]
+[-m MINUTES]
+[-s SECONDS]
+[-R COMMAND]
+.YS
+
+.SY tmg
+[-c ID]
+[-H HOURS]
+[-m MINUTES]
+[-s SECONDS]
+[-R COMMAND]
+.YS
+
+.SY tmg
+[-l]
+.YS
+
+.SY tmg
+[-d ID]
+.YS
+
+.SH Description
+Manage timers for executing arbitrary commands on finish. A server/client architecture is used, where the server stores all the user created timers and makes sure the provided commands are executed once the timer runs out. The client is used to create, delete and change existing timers. The server and client functionality is bundled in the same binary file.
+
+.SH Options
+Each option can be used 0 or 1 times. Below is a list of options split into logical groups:
+
+.SS Daemon & Configuration
+
+.TP
+\fB\-D\fR
+start the demon
+.TP
+\fB\-S\fR \fI\,SOCKET_PATH\/\fR
+Custom path to the daemon's socket file. The default socket path is \fB$XDG_RUNTIME_DIR/tmg.socket\fR. The value can be changed by providing the \fB\-D\fR option or the \fITMG_SOCKET\fR environmental variable. If both are provided, the value of the command line option is used.
+.TP
+\fB-b\fR \fI\,BACKLOG\/\fR
+A non-zero number of the socket's connection backlog. See more at
+.MR listen 2 .
+The default backlog value is \fI32\fR.
+
+.SS Creating timers and changing timers.
+
+.TP
+\fB\-smH\fR \fI\,SECONDS/MINUTES/HOURS\/\fR
+A positive integer for the amount of seconds, minutes and hours this timer will take.
+
+.TP
+\fB\-R\fR \fI\,COMMAND\/\fR
+The command executed once the timer ends.
+
+.TP
+\fB\-c\fR \fI\,ID\/\fR
+Change the timer with the given \fBID\fR.
+
+.SS Listing active timers.
+\fB\-l\fR
+List the currently running timers.
+
+.SS Deleting timers.
+\fB\-d\fR \fI\,ID\/\fR
+Delete the timer with the given \fBID\fR.
+
+.SH Examples
+First, the user needs to start the daemon. The user can also specify custom values for socket path and connection backlog:
+
+.EX
+.RS
+tmg -D -S /custom/path/to/socket -b 64
+.RE
+.EE
+
+Once the daemon is running, the user can create a new timer. There is no special flag/option for creating a new timer, it is done by simply specifying the time options and a command:
+
+.EX
+.RS
+tmg -m 30 -s 30 -R "command -FlaGs"
+.RE
+.EE
+
+To use a non-default socket path, the user can specify the \fI\-S\/\fR flag or use the \fITMG_SOCKET\fR environmental variable:
+
+.EX
+.RS
+tmg -H 1 -R "cmd" -S /path/to/socket/file
+TMG_SOCKET=/path/to/socket/file tmg -H 1 -R "cmd"
+.RE
+.EE
+
+The user can list active timers. This creates a table, one row per timer with the following columns:
+.P
+- \fIID\fR: identification number of the timer.
+.P
+- \fIBegin\fR: Time of the timer's start.
+.P
+- \fIEnd\fR: Time when the timer ends.
+.P
+- \fICommand\fR: Command to be executed once the timer finishes.
+
+.EX
+.RS
+tmg -l
+.RE
+.EE
+
+A user can use the timer to delete a timer.
+
+.EX
+.RS
+tmg -d 5
+.RE
+.EE
+
+Changing a timer works much like creating a new timer. By providing new time options, the new end time is calculated starting from the current point in time.
+
+.EX
+.RS
+# timer with ID 3 finishes in 30 seconds
+tmg -c 3 -s 30 
+.RE
+.EE
+
+.SH Bugs
+Please report any bugs you find on the
+.I Github
+.UR https://github.com/ThyW/tmg
+page of this project.
+.UE .
+
+
+.SH Author
+Ján Kapko
+.MT kamo.bavmesa@gmail.com
+.ME .
