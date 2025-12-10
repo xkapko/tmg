@@ -17,7 +17,7 @@
 
 #define TMG_MAJOR 1
 #define TMG_MINOR 0
-#define TMG_PATCH 0
+#define TMG_PATCH 1
 
 #define DEFAULT_SOCKET_PATH "tmg.socket"
 #define DEFAULT_SOCKET_BACKLOG 32
@@ -491,6 +491,7 @@ int delete_timer(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
             memcpy(&a, &mgr->q.timers[i], sizeof(tmg_timer_t));
             memcpy(&tmp, &mgr->q.timers[mgr->q.len - 1], sizeof(tmg_timer_t));
             memcpy(&mgr->q.timers[mgr->q.len - 1], &a, sizeof(tmg_timer_t));
+            memcpy(&mgr->q.timers[i], &tmp, sizeof(tmg_timer_t));
             deq(mgr);
             found = true;
             break;
