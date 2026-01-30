@@ -56,11 +56,11 @@ Custom path to the daemon's socket file. The default socket path is \fB$XDG_RUNT
 A non-zero number of the socket's connection backlog. See more at
 .MR listen 2 .
 The default backlog value is \fI32\fR.
-
-.SS Creating timers and changing timers
 .TP
 \fB-Q\fR
 Option passed in by the client to indicate that the daemon should shutdown.
+
+.SS Creating timers and changing timers
 
 .TP
 \fB\-smH\fR \fI\,SECONDS/MINUTES/HOURS\/\fR
@@ -84,7 +84,7 @@ Delete the timer with the given \fBID\fR.
 
 .SS Output formatting
 \fB\-q\fR
-Use short messages.
+Format output in a very concise manner.
 
 .SS Help & Version
 .TP
@@ -149,7 +149,7 @@ Changing a timer works much like creating a new timer. By providing new time opt
 .EX
 .RS
 # timer with ID 3 finishes in 30 seconds
-tmg -c 3 -s 30 
+tmg -c 3 -s 30
 .RE
 .EE
 
