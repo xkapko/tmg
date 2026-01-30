@@ -15,8 +15,8 @@
 #include <unistd.h>
 
 #define TMG_MAJOR 1
-#define TMG_MINOR 0
-#define TMG_PATCH 1
+#define TMG_MINOR 1
+#define TMG_PATCH 0
 
 #define DEFAULT_SOCKET_PATH "tmg.socket"
 #define DEFAULT_SOCKET_BACKLOG 32
