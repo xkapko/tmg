@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+if [ $# -ne 2 ]; then
+    printf "pomodoro: pomodoro WORK_TIME_IN_MINUTES BREAK_TIME_IN_MINUTES"
+    exit 1
+fi
+
+tmg -q -m $1 -R "notify-send 'pomodoro: work done'" 1> $(pwd)/.pomo
+tmg -q -m $(( $1 + $2 )) -R "notify-send 'pomodoro: break done'" 1>> $(pwd)/.pomo
