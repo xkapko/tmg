@@ -18,15 +18,13 @@ ifdef RELEASE
 	CFLAGS += -static
 endif
 
-all: $(OUT)
-
 $(OUT): $(SOURCE)
-	$(CC) $(CFLAGS) -o tmg $(SOURCE)
+	$(CC) $(CFLAGS) -o $(OUT) $(SOURCE)
 
-install: all
-	cp -p $(OUT) $(prefix)/bin
-	install -g 0 -o 0 -m 0644 $(MAN) $(MANPATH)
-	gzip $(MANPATH)/$(MAN)
+install: $(OUT)
+	install $(OUT) $(prefix)/bin
+	sudo install -g 0 -o 0 -m 0644 $(MAN) $(MANPATH)
+	sudo gzip $(MANPATH)/$(MAN)
 
 clean:
 	rm -f $(OUT)
