@@ -9,7 +9,7 @@ tmg \- create and manage timers which execute commands upon finishing
 .YS
 
 .SY tmg
-[-D]
+[-DQ]
 [-b BACKLOG]
 [-S SOCKET_PATH]
 .YS
@@ -57,7 +57,10 @@ A non-zero number of the socket's connection backlog. See more at
 .MR listen 2 .
 The default backlog value is \fI32\fR.
 
-.SS Creating timers and changing timers.
+.SS Creating timers and changing timers
+.TP
+\fB-Q\fR
+Option passed in by the client to indicate that the daemon should shutdown.
 
 .TP
 \fB\-smH\fR \fI\,SECONDS/MINUTES/HOURS\/\fR
@@ -71,13 +74,17 @@ The command executed once the timer ends.
 \fB\-c\fR \fI\,ID\/\fR
 Change the timer with the given \fBID\fR.
 
-.SS Listing active timers.
+.SS Listing active timers
 \fB\-l\fR
 List the currently running timers.
 
-.SS Deleting timers.
+.SS Deleting timers
 \fB\-d\fR \fI\,ID\/\fR
 Delete the timer with the given \fBID\fR.
+
+.SS Output formatting
+\fB\-q\fR
+Use short messages.
 
 .SS Help & Version
 .TP
