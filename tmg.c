@@ -1,18 +1,17 @@
-#include <errno.h>
 #define _POSIX_C_SOURCE 200809L
 
 #include "color.h"
 
-#include <asm-generic/errno-base.h>
+#include <errno.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <time.h>
 #include <unistd.h>
 
 #define TMG_MAJOR 1
@@ -85,8 +84,8 @@
 #endif
 
 // command line options
-bool arg_daemon, arg_list, arg_quit = false;
-int arg_change, arg_delete, arg_secs, arg_hours, arg_mins, arg_backlog = 0;
+bool arg_daemon = false, arg_quiet = false, arg_list = false, arg_quit = false;
+int arg_change = 0, arg_delete = 0, arg_secs = 0, arg_hours = 0, arg_mins = 0, arg_backlog = 0;
 char *arg_run = NULL;
 char *arg_sock_path = NULL;
 
@@ -576,7 +575,10 @@ int quit_daemon(tmg_manager_t *mgr, const tmg_client_message_t *msg, int conn)
     int res;
     LOG("%s: quit daemon request\n", INFO);
     UNRECOVERABLE(res, "unrecoverable: could not acquire mutex", pthread_mutex_lock(&mgr->mutex));
-    pthread_cancel(mgr->timer_thread);
+    // Check if the thread is running and cancel it
+    if (pthread_kill(mgr->timer_thread, 0) == ESRCH) {
+        pthread_cancel(mgr->timer_thread);
+    }
 
     REPLY(conn, "%s quit request recieved\n", OK);
     UNRECOVERABLE(res, "unrecoverable: someome stole my mutex!", pthread_mutex_unlock(&mgr->mutex));
