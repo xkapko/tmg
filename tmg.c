@@ -16,7 +16,7 @@
 
 #define TMG_MAJOR 1
 #define TMG_MINOR 1
-#define TMG_PATCH 1
+#define TMG_PATCH 2
 
 #define DEFAULT_SOCKET_PATH "tmg.socket"
 #define DEFAULT_SOCKET_BACKLOG 32
@@ -694,7 +694,7 @@ int client_main()
     }
 
     while ((rb = read(sock, &reply, sizeof(tmg_reply_t))) > 0) {
-        write(1, reply.body, sizeof(reply.body));
+        printf("%s\n", reply.body);
         memset(&reply, 0, sizeof(reply));
     }
 
